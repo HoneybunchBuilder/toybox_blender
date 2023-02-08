@@ -1,7 +1,6 @@
 import bpy
 import os
 import subprocess
-import string
 
 
 class BuildOperator(bpy.types.Operator):

@@ -1,18 +1,44 @@
 import bpy
+import json
+import os
+
+
+def parse_presets(self, context):
+    abs_path = os.path.abspath(context.scene.toybox.project_path)
+    json_path = os.path.join(abs_path, os.path.join("CMakePresets.json"))
+    if not os.path.exists(json_path):
+        return []
+
+    host_platform = 'Windows'
+
+    with open(json_path, 'r') as presets_json:
+        presets = json.load(presets_json)
+
+        editor_presets = []
+
+        configure_presets = presets['configurePresets']
+        for preset in configure_presets:
+            if 'condition' in preset:
+                condition = preset['condition']
+                if 'type' in condition:
+                    # Taking a short cut here...
+                    if condition['type'] == 'equals':
+                        if condition['rhs'] == host_platform:
+                            editor_presets.append(
+                                (preset['name'], preset['displayName'], ""))
+                else:
+                    editor_presets.append(
+                        (preset['name'], preset['displayName'], ""))
+        return editor_presets
 
 
 class ToyboxSettings(bpy.types.PropertyGroup):
-    project_path: bpy.props.StringProperty(name="Project Path", default="../")
+    project_path: bpy.props.StringProperty(name="Path", default="../")
     project_name: bpy.props.StringProperty(
-        name="Project Name", default="toybox-game")
-    build_preset: bpy.props.EnumProperty(name="Build Preset", items=[
-        ("x64-windows-ninja-llvm", "x64 Windows Ninja LLVM", ""),
-        ("x64-windows-static-ninja-llvm", "x64 Windows Static Ninja LLVM", ""),
-        ("x64-mingw-ninja-gcc", "x64 Mingw Ninja GCC", ""),
-        ("x64-mingw-static-ninja-gcc", "x64 Mingw Static Ninja GCC", ""),
-    ]
-    )
-    build_config: bpy.props.EnumProperty(name="Build Configuration", items=[
+        name="Name", default="toybox-game")
+    editor: bpy.props.StringProperty(name="Editor", default="code")
+    build_preset: bpy.props.EnumProperty(name="Preset", items=parse_presets)
+    build_config: bpy.props.EnumProperty(name="Config", items=[
         ("debug", "Debug", ""),
         ("relwithdebinfo", "RelWithDebInfo", ""),
         ("release", "Release", ""),
@@ -34,16 +60,22 @@ class OBJECT_PT_Toybox(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        layout.label(text="Toybox", icon='WORLD_DATA')
 
-        layout.prop(context.scene.toybox, "project_path")
-        layout.prop(context.scene.toybox, "project_name")
-        layout.prop(context.scene.toybox, "build_preset")
-        layout.prop(context.scene.toybox, "build_config")
+        row = layout.row()
+        row.prop(context.scene.toybox, "project_path")
+        row.prop(context.scene.toybox, "project_name")
+
+        row = layout.row()
+        row.prop(context.scene.toybox, "build_preset")
+        row.prop(context.scene.toybox, "build_config")
 
         row = layout.row()
         row.operator("tb.build")
         row.operator("tb.run")
+
+        row = layout.row()
+        row.prop(context.scene.toybox, "editor")
+        row.operator("tb.open_editor")
 
 
 def register():
