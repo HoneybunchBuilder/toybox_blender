@@ -31,6 +31,7 @@ class BuildOperator(bpy.types.Operator):
         if self.thread.is_alive():
             return {'PASS_THROUGH'}
 
+        self.report({'INFO'}, "Build Complete")
         return {'FINISHED'}
 
 
