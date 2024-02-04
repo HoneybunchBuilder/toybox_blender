@@ -9,14 +9,14 @@ def run_build(context):
     config = context.scene.toybox.build_config
     preset = context.scene.toybox.build_preset
 
-    subprocess.run("cmake --preset " + preset, cwd=abs_path)
+    subprocess.run('cmake --preset ' + preset, cwd=abs_path)
     subprocess.run(
-        "cmake --build --preset " + config + "-" + preset, cwd=abs_path)
+        'cmake --build --preset ' + config + '-' + preset, cwd=abs_path)
 
 
 class BuildOperator(bpy.types.Operator):
-    bl_idname = "tb.build"
-    bl_label = "Build"
+    bl_idname = 'tb.build'
+    bl_label = 'Build'
     bl_options = {'INTERNAL'}
 
     def execute(self, context):
@@ -31,13 +31,13 @@ class BuildOperator(bpy.types.Operator):
         if self.thread.is_alive():
             return {'PASS_THROUGH'}
 
-        self.report({'INFO'}, "Build Complete")
+        self.report({'INFO'}, 'Build Complete')
         return {'FINISHED'}
 
 
 class RunOperator(bpy.types.Operator):
-    bl_idname = "tb.run"
-    bl_label = "Run"
+    bl_idname = 'tb.run'
+    bl_label = 'Run'
 
     def execute(self, context):
         abs_path = os.path.abspath(context.scene.toybox.project_path)
@@ -50,10 +50,6 @@ class RunOperator(bpy.types.Operator):
             plat = 'windows'
         elif 'windows-static-ninja' in preset:
             plat = 'windows-static'
-        elif 'mingw-ninja' in preset:
-            plat = 'mingw'
-        elif 'mingw-static-ninja' in preset:
-            plat = 'mingw-static'
         elif 'windows-vs2022' in preset:
             plat = 'windows-clangcl'
         elif 'windows-static-vs2022' in preset:
@@ -61,8 +57,8 @@ class RunOperator(bpy.types.Operator):
 
         project_name = context.scene.toybox.project_name
 
-        exe_path = abs_path + "/build/"+arch+"/"+plat+"/" + config
+        exe_path = abs_path + '/build/'+arch+'/'+plat+'/' + config
 
         subprocess.Popen(os.path.join(
-            exe_path, project_name + ".exe"), cwd=exe_path)
+            exe_path, project_name + '.exe'), cwd=exe_path)
         return {'FINISHED'}
