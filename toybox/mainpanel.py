@@ -1,7 +1,8 @@
-import bpy
 import json
 import os
+import sys
 
+import bpy
 
 def parse_presets(self, context):
     abs_path = os.path.abspath(context.scene.toybox.project_path)
@@ -42,9 +43,8 @@ class ToyboxSettings(bpy.types.PropertyGroup):
         ('debug', 'Debug', ''),
         ('relwithdebinfo', 'RelWithDebInfo', ''),
         ('release', 'Release', ''),
-    ]
+    ] 
     )
-
 
 class OBJECT_PT_Toybox(bpy.types.Panel):
     bl_label = 'Toybox'
@@ -72,11 +72,11 @@ class OBJECT_PT_Toybox(bpy.types.Panel):
         row = layout.row()
         row.operator('tb.build')
         row.operator('tb.run')
+        row.operator('tb.refresh_components')
 
         row = layout.row()
         row.prop(context.scene.toybox, 'editor')
         row.operator('tb.open_editor')
-
 
 def register():
     bpy.types.Scene.toybox = bpy.props.PointerProperty(type=ToyboxSettings)

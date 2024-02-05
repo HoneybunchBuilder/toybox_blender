@@ -1,8 +1,31 @@
 import bpy
 import os
+from pathlib import Path
 import subprocess
 import threading
 
+def get_out_dir(context):
+    abs_path = os.path.abspath(context.scene.toybox.project_path)
+    config = Path(context.scene.toybox.build_config)
+    preset = context.scene.toybox.build_preset
+    preset_opts = preset.split('-')
+    arch = Path(preset_opts[0])
+    plat = ''
+    if 'windows-ninja' in preset:
+        plat = 'windows'
+    elif 'windows-static-ninja' in preset:
+        plat = 'windows-static'
+    elif 'windows-vs2022' in preset:
+        plat = 'windows-clangcl'
+    elif 'windows-static-vs2022' in preset:
+        plat = 'windows-static-clangcl'
+    plat = Path(plat)
+    
+    return abs_path / Path('build') / arch  / plat / config
+  
+def get_exe(context, out_dir):
+  exe = Path(context.scene.toybox.project_name + '.exe')
+  return out_dir / exe
 
 def run_build(context):
     abs_path = os.path.abspath(context.scene.toybox.project_path)
@@ -40,25 +63,8 @@ class RunOperator(bpy.types.Operator):
     bl_label = 'Run'
 
     def execute(self, context):
-        abs_path = os.path.abspath(context.scene.toybox.project_path)
-        config = context.scene.toybox.build_config
-        preset = context.scene.toybox.build_preset
-        preset_opts = preset.split('-')
-        arch = preset_opts[0]
-        plat = ''
-        if 'windows-ninja' in preset:
-            plat = 'windows'
-        elif 'windows-static-ninja' in preset:
-            plat = 'windows-static'
-        elif 'windows-vs2022' in preset:
-            plat = 'windows-clangcl'
-        elif 'windows-static-vs2022' in preset:
-            plat = 'windows-static-clangcl'
+        output_dir = get_out_dir(context)
+        exe = get_exe(context, output_dir)
 
-        project_name = context.scene.toybox.project_name
-
-        exe_path = abs_path + '/build/'+arch+'/'+plat+'/' + config
-
-        subprocess.Popen(os.path.join(
-            exe_path, project_name + '.exe'), cwd=exe_path)
+        subprocess.Popen(exe, cwd=output_dir)
         return {'FINISHED'}
