@@ -2,11 +2,22 @@ import bpy
 import sys
 import json
 import subprocess
+import functools
+
+class UpdateProps():
+  comp_name = ''
+  prop_name = ''
+  meta_type = ''
+  def __init__(self, comp_name, prop_name, meta_type):
+    self.comp_name = comp_name
+    self.prop_name = prop_name
+    self.meta_type = meta_type
 
 from . cmake import *
 tb_components = []
 tb_component_registry = []
 tb_prop_groups = {}
+tb_comp_props = {}
 
 def component_items(self, context):
   return tb_components
@@ -18,6 +29,14 @@ def comp_draw(self, context, meta):
 
 def comp_poll(self, context, lower_name):
   return context is not None and lower_name in context.object.tb_components
+
+def comp_update(self, context):
+  # Write the whole component
+  prop_names = tb_comp_props[self.name]
+  context.object[self.name] = {}
+  for attr in [attr for attr in dir(self) if attr in prop_names]:
+    context.object[self.name][attr] = getattr(self, attr)
+  return
 
 class TbRefreshComponents(bpy.types.Operator):
   bl_idname = 'tb.refresh_components'
@@ -47,6 +66,7 @@ class TbRefreshComponents(bpy.types.Operator):
         bpy.utils.unregister_class(comp)
     tb_component_registry.clear()
     tb_components.clear()
+    tb_comp_props.clear()
     
      # parse output json to a reflection dict
     meta_json = json.loads(meta)
@@ -54,26 +74,36 @@ class TbRefreshComponents(bpy.types.Operator):
     # Register each component type
     for comp_name in meta_json:
       comp_meta = meta_json[comp_name]
+      if comp_meta is None or comp_meta == 0:
+          continue
       lower_name = comp_name.lower()
-      
+
       tb_components.append((lower_name, comp_name, ''))
-      prop_class_name = 'Tb' + comp_name
+      prop_class_name = 'tb_' + comp_name
       panel_class_name = prop_class_name + 'Panel'
       prop_name = 'tb_' + lower_name
       idname = 'OBJECT_PT_tb_' + lower_name
       
-      poll_fn = lambda self,context: comp_poll(self, context, lower_name)
-      draw_fn = lambda self,context: comp_draw(self, context, comp_meta)
+      tb_comp_props[lower_name] = []
       
+      poll_fn = lambda s,context: comp_poll(s, context, lower_name)
+      draw_fn = lambda s,context: comp_draw(s, context, comp_meta)
+
       prop_class = type(prop_class_name, 
                         (bpy.types.PropertyGroup,),
                         {})
+      
+      prop_class.__annotations__['name'] = bpy.props.StringProperty(name='name', default=lower_name)
+      
       for meta_name in comp_meta:
         meta_val = comp_meta[meta_name]
         meta_type = meta_val[0]
         meta_params = meta_val[0:]
+        
+        tb_comp_props[lower_name].append(meta_name)
+
         if meta_type == 'bool':
-          prop_class.__annotations__[meta_name] = bpy.props.BoolProperty(name=meta_name, default=False)
+          prop_class.__annotations__[meta_name] = bpy.props.BoolProperty(name=meta_name, default=False, update=comp_update)
         elif meta_type == 'float':
           flt_min = sys.float_info.min
           flt_max = sys.float_info.max
@@ -81,13 +111,14 @@ class TbRefreshComponents(bpy.types.Operator):
             val_range = meta_params['range']
             flt_min = val_range[0]
             flt_max = val_range[1]
-          prop_class.__annotations__[meta_name] = bpy.props.FloatProperty(name=meta_name, default=0.5, min=flt_min, max=flt_max)
+          prop_class.__annotations__[meta_name] = bpy.props.FloatProperty(name=meta_name, default=0.5, min=flt_min, max=flt_max, update=comp_update)
         else:
-          prop_class.__annotations__[meta_name] = bpy.props.StringProperty(name=meta_name, default='static')
+          prop_class.__annotations__[meta_name] = bpy.props.StringProperty(name=meta_name, default='static', update=comp_update)
 
       comp_class = type(panel_class_name, 
                     (bpy.types.Panel, ),
-                    { 'bl_idname': idname,
+                    {
+                     'bl_idname': idname,
                      'bl_parent_id': 'OBJECT_PT_tb_components_panel',
                      'bl_label': comp_name,
                      'bl_space_type': 'PROPERTIES',
@@ -104,7 +135,7 @@ class TbRefreshComponents(bpy.types.Operator):
       bpy.utils.register_class(prop_class)
       bpy.utils.register_class(comp_class)
 
-      setattr(bpy.types.Object, prop_name, bpy.props.PointerProperty(type=prop_class))
+      setattr(bpy.types.Object, prop_name, bpy.props.PointerProperty(name=lower_name, type=prop_class))
 
     return {'FINISHED'}
 
