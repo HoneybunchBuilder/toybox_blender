@@ -18,17 +18,22 @@ tb_components = []
 tb_component_registry = []
 tb_prop_groups = {}
 tb_comp_props = {}
+tb_comp_meta = {}
 
 def component_items(self, context):
   return tb_components
 
-def comp_draw(self, context, meta):
+def comp_draw(self, context):
   layout = self.layout
+  class_name = 'tb_' + self.bl_label
+  meta = tb_comp_meta[self.bl_label]
+  obj = getattr(context.object, class_name)
   for name in meta:
-    layout.prop(context.object.tb_rigidbody, name)
+    layout.prop(obj, name)
 
-def comp_poll(self, context, lower_name):
-  return context is not None and lower_name in context.object.tb_components
+def comp_poll(self, context):
+  name = self.bl_label
+  return context is not None and name in context.object.tb_components
 
 def comp_update(self, context):
   # Write the whole component
@@ -45,21 +50,21 @@ class TbRefreshComponents(bpy.types.Operator):
   def execute(self, context):
     output_dir = get_out_dir(context)
     exe_path = get_exe(context, output_dir)
-    if(not os.path.exists(exe_path)):
+    if(exe_path is None or not os.path.exists(exe_path)):
       run_build(context)
-    if(not os.path.exists(exe_path)):
+    exe_path = get_exe(context, output_dir)
+    if(exe_path is None or not os.path.exists(exe_path)):
       # Build failed?
-      return {'ERROR'}
+      return {'FINISHED'}
     
     # Run the project with --info
-    exe = get_exe(context, output_dir)
-    meta = subprocess.run(executable=exe, args=['--info'], shell=True, cwd=output_dir, stdout=subprocess.PIPE).stdout
+    meta = subprocess.run(executable=exe_path, args=['--info'], shell=True, cwd=output_dir, stdout=subprocess.PIPE).stdout
     
     # Clear existing registries
     for key,val in tb_prop_groups.items():
       if hasattr(bpy.types.Object, key):
         delattr(bpy.types.Object, key)
-        bpy.utils.unregister_class(value)
+        bpy.utils.unregister_class(val)
       
     for comp in tb_component_registry:
       if hasattr(bpy.types, comp):
@@ -85,9 +90,7 @@ class TbRefreshComponents(bpy.types.Operator):
       idname = 'OBJECT_PT_tb_' + lower_name
       
       tb_comp_props[lower_name] = []
-      
-      poll_fn = lambda s,context: comp_poll(s, context, lower_name)
-      draw_fn = lambda s,context: comp_draw(s, context, comp_meta)
+      tb_comp_meta[lower_name] = comp_meta
 
       prop_class = type(prop_class_name, 
                         (bpy.types.PropertyGroup,),
@@ -124,8 +127,8 @@ class TbRefreshComponents(bpy.types.Operator):
                      'bl_space_type': 'PROPERTIES',
                      'bl_region_type': 'WINDOW',
                      'bl_context': 'object', 
-                     'draw': draw_fn,
-                     'poll': classmethod(poll_fn),
+                     'draw': comp_draw,
+                     'poll': classmethod(comp_poll),
                      }
                     )
 

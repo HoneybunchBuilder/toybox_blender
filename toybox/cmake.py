@@ -21,11 +21,16 @@ def get_out_dir(context):
         plat = 'windows-static-clangcl'
     plat = Path(plat)
     
-    return abs_path / Path('build') / arch  / plat / config
+    return abs_path / Path('build') / arch  / plat 
   
 def get_exe(context, out_dir):
-  exe = Path(context.scene.toybox.project_name + '.exe')
-  return out_dir / exe
+  exe = context.scene.toybox.project_name + '.exe'
+  
+  for dirpath, dirnames, filenames in os.walk(out_dir):
+    for filename in [f for f in filenames if f == exe]:
+      return Path(dirpath) / Path(filename)
+  
+  return None
 
 def run_build(context):
     abs_path = os.path.abspath(context.scene.toybox.project_path)
